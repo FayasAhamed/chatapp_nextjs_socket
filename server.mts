@@ -1,6 +1,13 @@
 import { createServer } from 'node:http';
 import next from 'next';
 import { Server } from "socket.io";
+import { PrismaClient } from './app/generated/prisma/index.js'
+
+const globalForPrisma = global as unknown as { 
+    prisma: PrismaClient
+}
+const prisma = globalForPrisma.prisma || new PrismaClient()
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
@@ -15,11 +22,55 @@ app.prepare().then(() => {
     io.on('connection', (socket) => {
         console.log(`User connected: ${socket.id}`)
 
-        socket.on('join-room', ({room, userName}) => {
-            socket.join(room);
-            console.log(`User ${userName} joined room ${room}`);
+        // TODO handle unjoin room
 
-            socket.to(room).emit('user_joined', `${userName} joined room ${room}`)
+        socket.on('join-room', async ({room, user}) => {
+            // access db, create chatRoom if not exist, add user to chatRoom
+            let dbRoom = await prisma.room.findUnique({
+                where: {
+                    name: room
+                }
+            })
+            if (!dbRoom) {
+                return new Error(`Room with name: ${room} is not found`)
+            }
+            let dbUser = await prisma.user.findUnique({
+                where: {
+                    id: user
+                }
+            })
+            if (!dbUser) {
+                return new Error(`User with id: ${user} is not found`)
+            }
+            let chatRoom = await prisma.chatRoom.findUnique({
+                where: {
+                    id: dbRoom.id
+                }
+            })
+            if (!chatRoom) {
+                chatRoom = await prisma.chatRoom.create({
+                    data: {
+                        roomId: room
+                    }
+                })
+            }
+            await prisma.chatRoom.update({
+                where: {
+                    id: chatRoom.id
+                },
+                data: {
+                    users: {
+                        connect: {
+                            id: user
+                        }
+                    }
+                }
+            })
+            
+            socket.join(room);
+            console.log(`User ${dbUser.email} joined room ${room}`);
+
+            socket.to(room).emit('user_joined', `${dbUser.email} joined room ${room}`)
         })
 
         socket.on('message', ({ room, message, sender }) => {
