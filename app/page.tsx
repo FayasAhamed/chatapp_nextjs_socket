@@ -81,7 +81,6 @@ export default function Home() {
       })
 
       if (response.ok) {
-        socket.emit('join-room', { room, user: (user as User).id });
         setJoined(true)
       }
 
@@ -97,21 +96,27 @@ export default function Home() {
   useEffect(() => {
     // -------------- initial fetch from db ----------------
 
-
     // -------------- socket related ----------------
-    socket.on('user_joined', (message) => {
-      setMessages((prev) => [...prev, { sender: "system", message }]);
-    })
+    if (joined) {
+      socket.on('user_joined', (message) => {
+        setMessages((prev) => [...prev, { sender: "system", message }]);
+      })
+      
+      socket.on('message', (data) => {
+        setMessages((prev) => [...prev, data]);
+      })
 
-    socket.on('message', (data) => {
-      setMessages((prev) => [...prev, data]);
-    })
-
+      socket.on('connect', () => {
+        socket.emit('join-room', { room, user: (user as User).id });
+      })
+    }
+    
     return () => {
       socket.off('user_joined');
       socket.off('message');
+      socket.off('connect');
     }
-  })
+  }, [joined])
 
   return (
     <div className="w-full flex mt-24 justify-center">
@@ -191,16 +196,14 @@ export default function Home() {
               Chat Room: {room}
             </h1>
             <div className="h-[500px] overflow-y-auto p-4 mb-4 bg-gray-200 border-1 border-gray-300 rounded-lg">
-              {messages.map((item) => {
-                console.log(item, user)
-                return (
+              {messages.map((item) => (
                 <ChatMessage
-                  key={crypto.randomUUID()}
+                  key={Math.random().toString(10).slice(2)}
                   message={item.message}
                   sender={item.sender}
                   isOwnMessage={item.sender == user?.email}
                   />
-                )})}
+                ))}
             </div>
             <div className="mb-20">
               <ChatForm onSendMessage={handleSendMessage}></ChatForm>

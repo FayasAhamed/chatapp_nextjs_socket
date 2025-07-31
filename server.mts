@@ -66,7 +66,7 @@ app.prepare().then(() => {
                     }
                 }
             })
-            
+
             socket.join(room);
             console.log(`User ${dbUser.email} joined room ${room}`);
 
