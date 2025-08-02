@@ -59,7 +59,7 @@ export default function Home() {
   const handleJoin = async () => {
     if (room) {
       const response = await fetch(`/api/room?name=${room}`)
-      if (response.ok) {
+      if ((await response.json()).data) {
         console.log(room, user)
         socket.emit('join-room', { room, user: (user as User).id });
         setJoined(true)
@@ -87,14 +87,19 @@ export default function Home() {
     }
   }
 
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = async (message: string) => {
     const data = {room, message, sender: user?.email};
     setMessages((prev) => [...prev, {message, sender: user?.email as string}]);
     socket.emit('message', data)
+    await fetch('/api/messages', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
   }
 
   useEffect(() => {
     // -------------- initial fetch from db ----------------
+    // TODO handle unjoin room
 
     // -------------- socket related ----------------
     if (joined) {
@@ -109,6 +114,15 @@ export default function Home() {
       socket.on('connect', () => {
         socket.emit('join-room', { room, user: (user as User).id });
       })
+
+      // handle messages from db
+      const getMessages = async () => {
+        const response = await fetch(`/api/messages?room=${room}`)
+        // default pagination will be 50, and next page token will be there if next page exists (scroll to load)
+        const messages = (await response.json()).data;
+        setMessages(messages)
+      }
+      getMessages();
     }
     
     return () => {

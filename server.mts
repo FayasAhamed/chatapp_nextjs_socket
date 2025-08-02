@@ -26,7 +26,23 @@ app.prepare().then(() => {
 
         socket.on('join-room', async ({room, user}) => {
             // access db, create chatRoom if not exist, add user to chatRoom
-            let dbRoom = await prisma.room.findUnique({
+            const userChatRoom = await prisma.chatRoom.findUnique({
+                where: {
+                    name: room,
+                    users: {
+                        some: {
+                            id: user
+                        }
+                    }
+                }
+            })
+            if (userChatRoom) {
+                // user already joined in room and present in db
+                socket.join(room);
+                return;
+            }
+
+            const dbRoom = await prisma.chatRoom.findUnique({
                 where: {
                     name: room
                 }
@@ -34,7 +50,7 @@ app.prepare().then(() => {
             if (!dbRoom) {
                 return new Error(`Room with name: ${room} is not found`)
             }
-            let dbUser = await prisma.user.findUnique({
+            const dbUser = await prisma.user.findUnique({
                 where: {
                     id: user
                 }
@@ -42,21 +58,9 @@ app.prepare().then(() => {
             if (!dbUser) {
                 return new Error(`User with id: ${user} is not found`)
             }
-            let chatRoom = await prisma.chatRoom.findUnique({
-                where: {
-                    id: dbRoom.id
-                }
-            })
-            if (!chatRoom) {
-                chatRoom = await prisma.chatRoom.create({
-                    data: {
-                        roomId: room
-                    }
-                })
-            }
             await prisma.chatRoom.update({
                 where: {
-                    id: chatRoom.id
+                    id: dbRoom.id
                 },
                 data: {
                     users: {
@@ -70,6 +74,13 @@ app.prepare().then(() => {
             socket.join(room);
             console.log(`User ${dbUser.email} joined room ${room}`);
 
+            await prisma.message.create({
+                data: {
+                    chatId: dbRoom.id,
+                    senderId: 'system',
+                    content: `User ${dbUser.email} joined room ${room}`,
+                }
+            })
             socket.to(room).emit('user_joined', `${dbUser.email} joined room ${room}`)
         })
 

@@ -15,24 +15,54 @@ datasource db {
 }
 
 model User {
-  id Int @id @default(autoincrement())
+  id String @id @default(cuid())
   email String @unique
   name String?
-  room Room[]
-  chatRoom ChatRoom[]
-}
-
-model Room {
-  id Int @id @default(autoincrement())
-  name String @unique
-  ownerId Int
-  owner User @relation(fields: [ownerId], references: [id])
-  chatRoom ChatRoom[]
+  createdRooms ChatRoom[] @relation("ChatRoomOwner")
+  includedRooms ChatRoom[] @relation("ChatRoomUsers")
+  messages Message[] @relation("UserMessages")
 }
 
 model ChatRoom {
-  id Int @id @default(autoincrement())
-  roomId Int
-  room Room @relation(fields: [roomId], references: [id])
-  users User[]
+  id String @id @default(cuid())
+  name String @unique
+  ownerId String
+  owner User @relation("ChatRoomOwner", fields: [ownerId], references: [id])
+  users User[] @relation("ChatRoomUsers")
+  messages Message[] @relation("ChatMessages")
+}
+
+model Message {
+  id String @id @default(cuid())
+  content String?
+  messageType MessageType @default(TEXT)
+  sender User @relation("UserMessages", fields: [senderId], references: [id])
+  senderId String
+  chat ChatRoom @relation("ChatMessages", fields: [chatId], references: [id])
+  chatId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime? @updatedAt
+  deleted Boolean @default(false)
+  replyTo Message? @relation("Replies", fields: [replyToId], references: [id])
+  replyToId String?
+  replies Message[] @relation("Replies")
+  attachments Attachment[]
+}
+
+model Attachment {
+  id String @id @default(cuid())
+  message Message @relation(fields: [messageId], references: [id])
+  messageId String
+  fileUrl String
+  fileType String
+  uploadedAt DateTime @default(now())
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  VIDEO
+  AUDIO
+  STICKER
 }

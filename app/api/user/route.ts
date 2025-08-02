@@ -17,8 +17,6 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  console.log('user from here', user)
-
   return NextResponse.json({data: user})
 }
 

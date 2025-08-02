@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const room = await prisma.room.findUnique({
+  const room = await prisma.chatRoom.findUnique({
     where: {
       name: roomName
     }
@@ -32,16 +32,10 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const room = await prisma.room.create({
-    data: {
-      name: roomName,
-      ownerId: owner
-    }
-  })
-
   const chatRoom = await prisma.chatRoom.create({
     data: {
-        roomId: room.id,
+        name: roomName,
+        ownerId: owner,
         users: {
             connect: {id: owner}
         }
